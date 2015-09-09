@@ -34,4 +34,4 @@ let server () =
   in
   Misc.tcp_farm_server 10 treat_connection (ADDR_INET (addr, port))
 
-let () = Misc.handle_unix_error (handle_error server) ()
+let () = handle_unix_error (handle_error server) ()
