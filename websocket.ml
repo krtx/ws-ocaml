@@ -28,6 +28,7 @@ let split ~sep s =
 type request =
   { request_line : bytes
   ; headers      : (bytes, bytes) Hashtbl.t
+  ; message_body : bytes
   }
 
 let parse_request cin : request =
@@ -48,7 +49,19 @@ let parse_request cin : request =
   in
   headers ();
 
-  { request_line; headers = tbl }
+  let message_body =
+    try
+      let content_length = Hashtbl.find tbl "CONTENT-LENGTH" |> int_of_string in
+      let buf = Bytes.create content_length in
+      for i = 0 to content_length - 1 do
+        Bytes.set buf i (input_char cin)
+      done;
+      buf
+    with
+      Not_found -> ""
+  in
+
+  { request_line; headers = tbl; message_body }
 
 (* --- test code --- *)
 
@@ -61,7 +74,7 @@ let in_channel_of_bytes b =
   open_in fn
 
 let test () =
-  let { request_line; headers } =
+  let { request_line; headers; message_body } =
     "GET / HTTP/1.1\r\nHost: localhost:3000\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nUpgrade: websocket\r\nOrigin: null\r\nSec-WebSocket-Version: 13\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36\r\nAccept-Encoding: gzip, deflate, sdch\r\nAccept-Language: ja,en-US;q=0.8,en;q=0.6\r\nSec-WebSocket-Key: eUksYQMw3z+ZMjb6baawiw==\r\nSec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n\r\n"
     |> in_channel_of_bytes
     |> parse_request
@@ -79,8 +92,9 @@ let test () =
   assert (Hashtbl.find headers "ACCEPT-LANGUAGE" = "ja,en-US;q=0.8,en;q=0.6");
   assert (Hashtbl.find headers "SEC-WEBSOCKET-KEY" = "eUksYQMw3z+ZMjb6baawiw==");
   assert (Hashtbl.find headers "SEC-WEBSOCKET-EXTENSIONS" = "permessage-deflate; client_max_window_bits");
+  assert (message_body = "");
 
-  let { request_line; headers } =
+  let { request_line; headers; message_body } =
     "POST / HTTP/1.1\r\nHost: localhost:3000\r\nUser-Agent: curl/7.43.0\r\nAccept: */*\r\nContent-Length: 21\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nquery=hoge fuga hello"
     |> in_channel_of_bytes
     |> parse_request
@@ -90,4 +104,5 @@ let test () =
   assert (Hashtbl.find headers "USER-AGENT" = "curl/7.43.0");
   assert (Hashtbl.find headers "ACCEPT" = "*/*");
   assert (Hashtbl.find headers "CONTENT-LENGTH" = "21");
-  assert (Hashtbl.find headers "CONTENT-TYPE" = "application/x-www-form-urlencoded")
+  assert (Hashtbl.find headers "CONTENT-TYPE" = "application/x-www-form-urlencoded");
+  assert (message_body = "query=hoge fuga hello")
