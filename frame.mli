@@ -9,7 +9,7 @@ and opcode =
   | Continuation
   | Text
   | Binary
-  | Connection
+  | Close
   | Ping
   | Pong
 

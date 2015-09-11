@@ -8,7 +8,7 @@ and opcode =
   | Continuation
   | Text
   | Binary
-  | Connection
+  | Close
   | Ping
   | Pong
 
@@ -16,7 +16,7 @@ let int_of_opcode = function
   | Continuation -> 0
   | Text         -> 1
   | Binary       -> 2
-  | Connection   -> 8
+  | Close        -> 8
   | Ping         -> 9
   | Pong         -> 10
 
@@ -24,7 +24,7 @@ let opcode_of_int = function
   | 0  -> Continuation
   | 1  -> Text
   | 2  -> Binary
-  | 8  -> Connection
+  | 8  -> Close
   | 9  -> Ping
   | 10 -> Pong
   | x  -> failwith ("opcode_of_int: " ^ (string_of_int x))
