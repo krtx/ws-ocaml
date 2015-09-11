@@ -63,46 +63,50 @@ let parse_request cin : request =
 
   { request_line; headers = tbl; message_body }
 
-(* --- test code --- *)
+exception Bad_request of string
+type ('a, 'b) result = Ok of 'a | Error of 'b
 
-let in_channel_of_bytes b =
-  let fn = Filename.temp_file "in_channel_of_string" "" in
-  let cout = open_out fn in
-  output_bytes cout b;
-  flush cout;
-  close_out cout;
-  open_in fn
+let generate_sec_websocket_accept key =
+  key ^ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+  |> Sha1.string
+  |> Sha1.to_bin
+  |> B64.encode
 
-let test () =
-  let { request_line; headers; message_body } =
-    "GET / HTTP/1.1\r\nHost: localhost:3000\r\nConnection: Upgrade\r\nPragma: no-cache\r\nCache-Control: no-cache\r\nUpgrade: websocket\r\nOrigin: null\r\nSec-WebSocket-Version: 13\r\nUser-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36\r\nAccept-Encoding: gzip, deflate, sdch\r\nAccept-Language: ja,en-US;q=0.8,en;q=0.6\r\nSec-WebSocket-Key: eUksYQMw3z+ZMjb6baawiw==\r\nSec-WebSocket-Extensions: permessage-deflate; client_max_window_bits\r\n\r\n"
-    |> in_channel_of_bytes
-    |> parse_request
-  in
-  assert (request_line = "GET / HTTP/1.1");
-  assert (Hashtbl.find headers "HOST" = "localhost:3000");
-  assert (Hashtbl.find headers "CONNECTION" = "Upgrade");
-  assert (Hashtbl.find headers "PRAGMA" = "no-cache");
-  assert (Hashtbl.find headers "CACHE-CONTROL" = "no-cache");
-  assert (Hashtbl.find headers "UPGRADE" = "websocket");
-  assert (Hashtbl.find headers "ORIGIN" = "null");
-  assert (Hashtbl.find headers "SEC-WEBSOCKET-VERSION" = "13");
-  assert (Hashtbl.find headers "USER-AGENT" = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/45.0.2454.85 Safari/537.36");
-  assert (Hashtbl.find headers "ACCEPT-ENCODING" = "gzip, deflate, sdch");
-  assert (Hashtbl.find headers "ACCEPT-LANGUAGE" = "ja,en-US;q=0.8,en;q=0.6");
-  assert (Hashtbl.find headers "SEC-WEBSOCKET-KEY" = "eUksYQMw3z+ZMjb6baawiw==");
-  assert (Hashtbl.find headers "SEC-WEBSOCKET-EXTENSIONS" = "permessage-deflate; client_max_window_bits");
-  assert (message_body = "");
+let find_eq tbl k v = try Hashtbl.find tbl k = v with Not_found -> false
 
-  let { request_line; headers; message_body } =
-    "POST / HTTP/1.1\r\nHost: localhost:3000\r\nUser-Agent: curl/7.43.0\r\nAccept: */*\r\nContent-Length: 21\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nquery=hoge fuga hello"
-    |> in_channel_of_bytes
-    |> parse_request
-  in
-  assert (request_line = "POST / HTTP/1.1");
-  assert (Hashtbl.find headers "HOST" = "localhost:3000");
-  assert (Hashtbl.find headers "USER-AGENT" = "curl/7.43.0");
-  assert (Hashtbl.find headers "ACCEPT" = "*/*");
-  assert (Hashtbl.find headers "CONTENT-LENGTH" = "21");
-  assert (Hashtbl.find headers "CONTENT-TYPE" = "application/x-www-form-urlencoded");
-  assert (message_body = "query=hoge fuga hello")
+let handshake_response { request_line; headers; _ } =
+  ignore request_line;
+  if find_eq headers "UPGRADE" "websocket" && find_eq headers "CONNECTION" "Upgrade"
+  then
+    try
+      let sec_websocket_key     = Hashtbl.find headers "SEC-WEBSOCKET-KEY"
+      and sec_websocket_version = Hashtbl.find headers "SEC-WEBSOCKET-VERSION"
+      in
+      if sec_websocket_version <> "13"
+      then
+        Error ([ "HTTP/1.1 400 Bad Request"
+               ; "Content-Length: 33"
+               ; ""
+               ; "Unsupported Sec-WebSocket-Version"
+               ] |> String.concat "\r\n")
+      else
+        let accept = generate_sec_websocket_accept sec_websocket_key in
+        Ok ([ "HTTP/1.1 101 Switching Protocols"
+            ; "Upgrade: websocket"
+            ; "Connection: Upgrade"
+            ; "Sec-WebSocket-Accept: " ^ accept
+            ; ""
+            ; ""
+            ] |> String.concat "\r\n")
+    with
+      Not_found -> Error ([ "HTTP/1.1 400 Bad Request"
+                          ; "Content-Length: 27"
+                          ; ""
+                          ; "Required fields are missing"
+                          ] |> String.concat "\r\n")
+  else
+    Error ([ "HTTP/1.1 400 Bad Request"
+           ; "Content-Length: 23"
+           ; ""
+           ; "Not WebSocket handshake"
+           ] |> String.concat "\r\n")

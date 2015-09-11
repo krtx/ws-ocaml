@@ -114,6 +114,38 @@ let to_bytes ?masking_key frame =
   end;
   buf
 
+let read cin =
+  let buf = ref (Bytes.create 128) in
+  let read_bytes offs len =
+    if Bytes.length !buf < offs + len
+    then buf := Bytes.extend !buf 0 (offs + len);
+    for i = offs to offs + len - 1 do
+      Bytes.set !buf i (input_char cin)
+    done;
+    Bytes.sub !buf offs len
+  in
+  ignore (read_bytes 0 2);
+  let fin    = (Bytes.get !buf 0 |> int_of_char) lsr 7 = 1 in
+  let opcode = (Bytes.get !buf 0 |> int_of_char) land 15 |> opcode_of_int in
+  let mask   = (Bytes.get !buf 1 |> int_of_char) lsr 7 = 1 in
+  let pl     = (Bytes.get !buf 1 |> int_of_char) land 127 in
+  let payload_length, pos =
+    match pl with
+    | 126 -> read_bytes 2 2 |> int_of_bytes, 4
+    | 127 -> read_bytes 2 8 |> int_of_bytes, 10
+    | _   -> pl, 2
+  in
+  let payload_data =
+    if mask
+    then
+      let key = read_bytes pos 4
+      and raw = read_bytes (pos + 4) payload_length in
+      mask_of ~key raw
+    else
+      read_bytes pos payload_length
+  in
+  { fin; opcode; payload_data }
+
 let of_bytes bytes =
   let fin    = (Bytes.get bytes 0 |> int_of_char) lsr 7 = 1 in
   let opcode =
@@ -139,143 +171,3 @@ let of_bytes bytes =
   in
   { fin; opcode; payload_data }
 
-(* --- test code --- *)
-
-let test1 x =
-  let x' = x |> bytes_of_halfword |> int_of_bytes in
-  if x <> x'
-  then begin
-    Printf.eprintf "check1: %d expected, but got %d\n" x x';
-    assert false
-  end
-
-let test2 x =
-  let x' = x |> bytes_of_doubleword |> int_of_bytes in
-  if x <> x'
-  then begin
-    Printf.eprintf "check2: %d expected, but got %d\n" x x';
-    assert false
-  end
-
-let test3 ({ fin; opcode; payload_data } as f) =
-  let { fin          = fin'
-      ; opcode       = opcode'
-      ; payload_data = payload_data' } = to_bytes f |> of_bytes in
-  assert (fin = fin');
-  assert (opcode = opcode');
-  assert (payload_data = payload_data')
-
-let test4 ({ fin; opcode; payload_data } as f) =
-  let { fin          = fin'
-      ; opcode       = opcode'
-      ; payload_data = payload_data' } =
-    to_bytes ~masking_key:(Random.int (1 lsl 30 - 1)) f |> of_bytes in
-  assert (fin = fin');
-  assert (opcode = opcode');
-  assert (payload_data = payload_data')
-
-let test () =
-  Random.self_init ();
-  print_endline "::: ∀ x, int_of_bytes (bytes_of_halfword x) = x :::";
-  for _ = 1 to 100 do
-    (fun () -> test1 (Random.int 65536)) ()
-  done;
-  print_endline "ok";
-  print_endline "::: ∀ x, int_of_bytes (bytes_of_double_word x) = x :::";
-  for _ = 1 to 100 do
-    (fun () -> test2 (Random.int64 (Int64.shift_left 1L 62) |> Int64.to_int)) ()
-  done;
-  print_endline "ok";
-  print_endline "::: ∀ x, of_bytes (to_bytes x) = x :::";
-  test3 { fin          = false
-        ; opcode       = Continuation
-        ; payload_data = Bytes.of_string "hello"
-        };
-  test3 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.of_string "hello hello hello"
-        };
-  test3 { fin          = true
-        ; opcode       = Connection
-        ; payload_data = Bytes.of_string "\r\n\000"
-        };
-  test3 { fin          = true
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 125
-        };
-  test3 { fin          = true
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 200
-        };
-  test3 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 20000
-        };
-  test3 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.create 65535
-        };
-  test3 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.create 65536
-        };
-  test3 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 123456789
-        };
-  test3 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 300000000
-        };
-  print_endline "ok";
-  print_endline "::: ∀ x, of_bytes (to_bytes with a ranodm key x) = x :::";
-  test4 { fin          = false
-        ; opcode       = Continuation
-        ; payload_data = Bytes.of_string "hello"
-        };
-  test4 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.of_string "hello hello hello"
-        };
-  test4 { fin          = true
-        ; opcode       = Connection
-        ; payload_data = Bytes.of_string "\r\n\000"
-        };
-  test4 { fin          = true
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 125
-        };
-  test4 { fin          = true
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 200
-        };
-  test4 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 20000
-        };
-  test4 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.create 65535
-        };
-  test4 { fin          = false
-        ; opcode       = Text
-        ; payload_data = Bytes.create 65536
-        };
-  test4 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 3456789
-        };
-  test4 { fin          = false
-        ; opcode       = Binary
-        ; payload_data = Bytes.create 30000000
-        };
-  print_endline "ok"
-
-
-(* Invoke tests when the program name ends with 'frame.byte' or 'frame.native' *)
-let () =
-  let prog = Sys.argv.(0) in
-  let l = String.length prog in
-  if (l >= 10 && String.sub prog (l - 10) 10 = "frame.byte") ||
-     (l >= 12 && String.sub prog (l - 12) 12 = "frame.native")
-  then test ()

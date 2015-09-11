@@ -15,3 +15,4 @@ and opcode =
 
 val to_bytes : ?masking_key:int -> t -> bytes
 val of_bytes : bytes -> t
+val read     : in_channel -> t
