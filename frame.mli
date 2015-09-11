@@ -13,6 +13,6 @@ and opcode =
   | Ping
   | Pong
 
-val to_bytes : ?masking_key:int -> t -> bytes
-val of_bytes : bytes -> t
-val read     : in_channel -> t
+val to_bytes   : ?masking_key:int -> t -> bytes
+val of_bytes   : bytes -> t
+val read_frame : in_channel -> t

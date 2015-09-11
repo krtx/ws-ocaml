@@ -1,14 +1,18 @@
 open Unix
 open Websocket
+open Frame
 
 let ws (client_sock, _) =
   let cin  = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
   let ({ request_line; headers; _ } as req) = parse_request cin in
   begin
-    match handshake_response req with
-    | Ok    resp -> output_bytes cout resp
-    | Error resp -> output_bytes cout resp
+    try
+      let resp = handshake_response req in
+      output_bytes cout resp
+    with
+      Bad_request resp ->
+      output_bytes cout resp
   end;
   close client_sock
 

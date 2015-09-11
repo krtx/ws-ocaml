@@ -114,7 +114,7 @@ let to_bytes ?masking_key frame =
   end;
   buf
 
-let read cin =
+let read_frame cin =
   let buf = ref (Bytes.create 128) in
   let read_bytes offs len =
     if Bytes.length !buf < offs + len

@@ -64,7 +64,13 @@ let parse_request cin : request =
   { request_line; headers = tbl; message_body }
 
 exception Bad_request of string
-type ('a, 'b) result = Ok of 'a | Error of 'b
+
+let bad_request message =
+  raise (Bad_request ([ "HTTP/1.1 400 Bad Request"
+                      ; "Content-Length: " ^ (message |> String.length |> string_of_int)
+                      ; ""
+                      ; message
+                      ] |> String.concat "\r\n"))
 
 let generate_sec_websocket_accept key =
   key ^ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -74,39 +80,23 @@ let generate_sec_websocket_accept key =
 
 let find_eq tbl k v = try Hashtbl.find tbl k = v with Not_found -> false
 
-let handshake_response { request_line; headers; _ } =
-  ignore request_line;
-  if find_eq headers "UPGRADE" "websocket" && find_eq headers "CONNECTION" "Upgrade"
-  then
-    try
-      let sec_websocket_key     = Hashtbl.find headers "SEC-WEBSOCKET-KEY"
-      and sec_websocket_version = Hashtbl.find headers "SEC-WEBSOCKET-VERSION"
-      in
-      if sec_websocket_version <> "13"
-      then
-        Error ([ "HTTP/1.1 400 Bad Request"
-               ; "Content-Length: 33"
-               ; ""
-               ; "Unsupported Sec-WebSocket-Version"
-               ] |> String.concat "\r\n")
-      else
-        let accept = generate_sec_websocket_accept sec_websocket_key in
-        Ok ([ "HTTP/1.1 101 Switching Protocols"
-            ; "Upgrade: websocket"
-            ; "Connection: Upgrade"
-            ; "Sec-WebSocket-Accept: " ^ accept
-            ; ""
-            ; ""
-            ] |> String.concat "\r\n")
-    with
-      Not_found -> Error ([ "HTTP/1.1 400 Bad Request"
-                          ; "Content-Length: 27"
-                          ; ""
-                          ; "Required fields are missing"
-                          ] |> String.concat "\r\n")
-  else
-    Error ([ "HTTP/1.1 400 Bad Request"
-           ; "Content-Length: 23"
-           ; ""
-           ; "Not WebSocket handshake"
-           ] |> String.concat "\r\n")
+let handshake_response { headers; _ } =
+  if not (find_eq headers "UPGRADE" "websocket" && find_eq headers "CONNECTION" "Upgrade")
+  then bad_request "Not WebSocket handshake";
+  let sec_websocket_key =
+    try Hashtbl.find headers "SEC-WEBSOCKET-KEY"
+    with Not_found -> bad_request "Sec-WebSocket-Key is missing"
+  and sec_websocket_version =
+    try Hashtbl.find headers "SEC-WEBSOCKET-VERSION"
+    with Not_found -> bad_request "Sec-WebSocket-Version is missing"
+  in
+  if sec_websocket_version <> "13"
+  then bad_request "Unsupported Sec-WebSocket-Version";
+  let accept = generate_sec_websocket_accept sec_websocket_key in
+  [ "HTTP/1.1 101 Switching Protocols"
+  ; "Upgrade: websocket"
+  ; "Connection: Upgrade"
+  ; "Sec-WebSocket-Accept: " ^ accept
+  ; ""
+  ; ""
+  ] |> String.concat "\r\n"
