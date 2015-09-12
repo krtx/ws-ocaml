@@ -3,8 +3,8 @@
 OCAMLC   = ocamlc
 OCAMLOPT = ocamlopt
 WARN     = -w A-4-33-40-41-42-43-34-44 -strict-sequence
-SRC      = misc.ml frame.mli frame.ml websocket.ml server.ml
-TEST     = misc.ml frame.mli frame.ml websocket.ml t/test_helper.ml t/frame_test.ml t/websocket_test.ml t/test.ml
+SRC      = misc.ml frame.mli frame.ml websocket.ml echo.ml server.ml
+TEST     = misc.ml frame.mli frame.ml websocket.ml echo.ml t/test_helper.ml t/frame_test.ml t/websocket_test.ml t/test.ml
 
 all: server.byte
 
