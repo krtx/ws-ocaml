@@ -1,15 +1,5 @@
 open Unix
 
-let input_chars ?(buf_size=1024) cin =
-  let buf = ref (Bytes.create buf_size) in
-  let rec loop i =
-    if Bytes.length !buf <= i then buf := Bytes.extend !buf 0 buf_size;
-    let c = input_char cin in
-    Bytes.set !buf i c;
-    loop (i + 1)
-  in
-  try loop 0 with End_of_file -> !buf
-
 let input_line_rn ?(buf_size=1024) cin =
   let buf = ref (Bytes.create buf_size) in
   let rec loop i prev =
@@ -80,7 +70,7 @@ let generate_sec_websocket_accept key =
 
 let find_eq tbl k v = try Hashtbl.find tbl k = v with Not_found -> false
 
-let handshake_response { headers; _ } =
+let make_response { headers; _ } =
   if not (find_eq headers "UPGRADE" "websocket" && find_eq headers "CONNECTION" "Upgrade")
   then bad_request "Not WebSocket handshake";
   let sec_websocket_key =

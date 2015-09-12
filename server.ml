@@ -1,17 +1,16 @@
 open Unix
-open Websocket
 
 let handshake handler (client_sock, _) =
   let cin = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
   begin
     try
-      let response = parse_request cin |> Websocket.handshake_response in
+      let response = Handshake.parse_request cin |> Handshake.make_response in
       output_bytes cout response;
       flush cout;
       handler client_sock
     with
-      Websocket.Bad_request response ->
+      Handshake.Bad_request response ->
       output_bytes cout response;
       flush cout
   end;
