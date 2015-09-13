@@ -55,12 +55,15 @@ let parse_request cin : request =
 
 exception Bad_request of string
 
-let bad_request message =
-  raise (Bad_request ([ "HTTP/1.1 400 Bad Request"
-                      ; "Content-Length: " ^ (message |> String.length |> string_of_int)
-                      ; ""
-                      ; message
-                      ] |> String.concat "\r\n"))
+let bad_request ?(headers=[]) message =
+  raise
+    (Bad_request
+       ("HTTP/1.1 400 Bad Request" :: headers @
+        (if message = ""
+         then []
+         else [ "Content-Length: " ^ (message |> String.length |> string_of_int) ]) @
+        [ ""; message ]
+        |> String.concat "\r\n"))
 
 let generate_sec_websocket_accept key =
   key ^ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -81,7 +84,7 @@ let make_response { headers; _ } =
     with Not_found -> bad_request "Sec-WebSocket-Version is missing"
   in
   if sec_websocket_version <> "13"
-  then bad_request "Unsupported Sec-WebSocket-Version";
+  then bad_request ~headers:["Sec-WebSocket-Version: 13"] "";
   let accept = generate_sec_websocket_accept sec_websocket_key in
   [ "HTTP/1.1 101 Switching Protocols"
   ; "Upgrade: websocket"
