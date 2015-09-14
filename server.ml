@@ -1,7 +1,5 @@
 open Unix
 
-let handle_error f x = try f x with Failure err -> prerr_endline err; exit 2
-
 let () =
   let usage = Sys.argv.(0) ^ " <address> <port>" in
   if Array.length Sys.argv <= 2 then failwith ("Usage: " ^ usage);
@@ -21,5 +19,4 @@ let () =
     | Text b -> send_text client b
     | Binary b -> send_binary client b
   in
-  let echo = App.make ~on_message in
-  handle_unix_error (handle_error (App.run ~addr ~port echo)) ()
+  App.(run ~addr ~port (make ~on_message))

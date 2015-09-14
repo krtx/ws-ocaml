@@ -16,6 +16,9 @@ let make ~on_message client_sock =
       then buf := Bytes.cat !buf payload_data;
       begin
         match opcode with
+        | Continuation -> ()
+        | Text -> if fin then on_message cout (Text !buf)
+        | Binary -> if fin then on_message cout (Binary !buf)
         | Close ->
           output_bytes cout
             (to_bytes { fin = true
@@ -30,9 +33,6 @@ let make ~on_message client_sock =
                       ; payload_data });
           flush cout
         | Pong -> ()
-        | Continuation -> ()
-        | Text -> if fin then on_message cout (Text !buf)
-        | Binary -> if fin then on_message cout (Binary !buf)
       end;
       if fin then buf := ""
     done
@@ -54,7 +54,7 @@ let handshake handler (client_sock, _) =
   and cout = out_channel_of_descr client_sock in
   begin
     try
-      let response = Handshake.parse_request cin |> Handshake.make_response in
+      let response = Handshake.(parse_request cin |> make_response) in
       output_bytes cout response;
       flush cout;
       Misc.try_finalize handler client_sock close client_sock
@@ -64,6 +64,8 @@ let handshake handler (client_sock, _) =
       flush cout
   end;
   close client_sock
+
+let handle_error f x = try f x with Failure err -> prerr_endline err; exit 2
 
 let run ?(max_connection=10) ~addr ~port handler =
   let addr =
@@ -79,4 +81,7 @@ let run ?(max_connection=10) ~addr ~port handler =
   let treat_connection _ =
     Misc.co_treatment (allow_connection_errors (handshake handler))
   in
-  Misc.tcp_farm_server max_connection treat_connection (ADDR_INET (addr, port))
+  let srv =
+    Misc.tcp_farm_server max_connection treat_connection (ADDR_INET (addr, port))
+  in
+  handle_unix_error (handle_error srv) ()
