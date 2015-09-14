@@ -5,6 +5,10 @@ type t = file_descr -> unit
 type client = out_channel
 type message = Text of bytes | Binary of bytes
 
+(* TODO: Broadcast function *)
+
+(* TODO: Add on_close, on_connect, ... *)
+(* TODO: Handling of Invalid Data (10.7)  *)
 let make ~on_message client_sock =
   let cin = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
@@ -20,6 +24,7 @@ let make ~on_message client_sock =
         | Text -> if fin then on_message cout (Text !buf)
         | Binary -> if fin then on_message cout (Binary !buf)
         | Close ->
+          (* TODO: Handling of closing status *)
           output_bytes cout
             (to_bytes { fin = true
                       ; opcode = Close

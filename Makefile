@@ -1,10 +1,11 @@
-.PHONY: all clean check
+.PHONY: all clean check doc
 
 OCAMLC   = ocamlc
 OCAMLOPT = ocamlopt
 WARN     = -w A-4-33-40-41-42-43-34-44 -strict-sequence
 SRC      = misc.ml frame.mli frame.ml handshake.ml app.mli app.ml server.ml
 TEST     = misc.ml frame.mli frame.ml handshake.ml t/test_helper.ml t/frame_test.ml t/websocket_test.ml t/test.ml
+DOCDIR   = doc
 
 all: server.byte
 
@@ -36,3 +37,7 @@ check: test.byte
 clean:
 	rm -f *.byte *.native
 	rm -f *.o *.cmx *.cmo *.cmt *.cmti *.cmi
+
+doc: server.byte
+	mkdir -p $(DOCDIR)
+	ocamldoc frame.mli app.mli -html -d $(DOCDIR)
