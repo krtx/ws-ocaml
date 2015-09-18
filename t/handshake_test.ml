@@ -1,4 +1,4 @@
-open Websocket
+open Handshake
 open Test_helper
 
 let test () =

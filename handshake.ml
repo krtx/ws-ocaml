@@ -66,10 +66,8 @@ let bad_request ?(headers=[]) message =
         |> String.concat "\r\n"))
 
 let generate_sec_websocket_accept key =
-  key ^ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
-  |> Sha1.string
-  |> Sha1.to_bin
-  |> B64.encode
+  let open Crypto in
+  base64encode (sha1 (key ^ "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
 
 let find_eq tbl k v = try Hashtbl.find tbl k = v with Not_found -> false
 

@@ -41,32 +41,6 @@ let mask_of ~key transformed_data =
   done;
   res
 
-(* encode x into n bytes in big endian *)
-let bytes_of_int n x =
-  let res = Bytes.create n in
-  let rec copy i =
-    if i < n then begin
-      Bytes.set res i ((x lsr ((n - i - 1) * 8)) land 255 |> char_of_int);
-      copy (i + 1)
-    end
-  in copy 0;
-  res
-
-let bytes_of_halfword   x = bytes_of_int 2 x
-let bytes_of_word       x = bytes_of_int 4 x
-let bytes_of_doubleword x = bytes_of_int 8 x
-
-let int_of_bytes bytes =
-  let n = Bytes.length bytes in
-  let rec loop i acc =
-    if i < n
-    then
-      loop (i + 1) ((Bytes.get bytes i |> int_of_char) lor (acc lsl 8))
-    else
-      acc
-  in
-  loop 0 0
-
 let to_bytes ?masking_key frame =
   let payload_length = Bytes.length frame.payload_data in
   let frame_size =
@@ -95,18 +69,18 @@ let to_bytes ?masking_key frame =
   else if payload_length <= 65535
   then begin
     Bytes.set buf 1 (mask lor 126 |> char_of_int);
-    Bytes.blit (payload_length |> bytes_of_halfword) 0 buf 2 2;
+    Bytes_ext.encode_int payload_length buf 2 2;
     pos := 4
   end
   else begin
     Bytes.set buf 1 (mask lor 127 |> char_of_int);
-    Bytes.blit (payload_length |> bytes_of_doubleword) 0 buf 2 8;
+    Bytes_ext.encode_int payload_length buf 2 8;
     pos := 10
   end;
   begin
     match masking_key with
     | Some key ->
-      let key = key |> bytes_of_word in
+      let key = Bytes_ext.bytes_of_int key 4 in
       Bytes.blit key 0 buf !pos 4;
       Bytes.blit (mask_of ~key frame.payload_data) 0 buf (!pos + 4) payload_length
     | None     ->
@@ -131,8 +105,8 @@ let read_frame cin =
   let pl     = (Bytes.get !buf 1 |> int_of_char) land 127 in
   let payload_length, pos =
     match pl with
-    | 126 -> read_bytes 2 2 |> int_of_bytes, 4
-    | 127 -> read_bytes 2 8 |> int_of_bytes, 10
+    | 126 -> read_bytes 2 2 |> Bytes_ext.int_of_bytes, 4
+    | 127 -> read_bytes 2 8 |> Bytes_ext.int_of_bytes, 10
     | _   -> pl, 2
   in
   let payload_data =
@@ -156,8 +130,8 @@ let of_bytes bytes =
   let pl     = (Bytes.get bytes 1 |> int_of_char) land 127 in
   let payload_length, pos =
     match pl with
-    | 126 -> Bytes.sub bytes 2 2 |> int_of_bytes, 4
-    | 127 -> Bytes.sub bytes 2 8 |> int_of_bytes, 10
+    | 126 -> Bytes.sub bytes 2 2 |> Bytes_ext.int_of_bytes, 4
+    | 127 -> Bytes.sub bytes 2 8 |> Bytes_ext.int_of_bytes, 10
     | _   -> pl, 2
   in
   let payload_data =

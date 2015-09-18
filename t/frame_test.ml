@@ -11,7 +11,7 @@ let test_frames =
     ; payload_data = Bytes.of_string "hello hello hello"
     }
   ; { fin          = true
-    ; opcode       = Connection
+    ; opcode       = Close
     ; payload_data = Bytes.of_string "\r\n\000"
     }
   ; { fin          = true
@@ -52,7 +52,7 @@ let test_f mask ({ fin; opcode; payload_data } as f) =
      then to_bytes ~masking_key:(Random.int (1 lsl 30 - 1)) f
      else to_bytes f)
     |> in_channel_of_bytes
-    |> read
+    |> read_frame
   in
   assert (fin          = fin');
   assert (opcode       = opcode');
