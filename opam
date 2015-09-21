@@ -1,0 +1,20 @@
+opam-version: "1.2"
+name: "ws-ocaml"
+version: "0.1"
+maintainer: "kinoshita.minoru22@gmail.com"
+authors: ["KINOSHITA Minoru"]
+homepage: "https://github.com/krtx/ws-ocaml"
+bug-reports: "https://github.com/krtx/ws-ocaml/issues"
+license: "CC-BY-NC-SA"
+dev-repo: "https://github.com/krtx/ws-ocaml.git"
+build: [
+  ["./configure"]
+  [make]
+]
+build-test: [
+  ["./configure" "--enable-tests"]
+  [make "test"]
+]
+install: [make "install"]
+remove: ["ocamlfind" "remove" "project"]
+depends: "ocamlfind"
