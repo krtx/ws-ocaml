@@ -1,4 +1,4 @@
-(** Application interface module. *)
+(** WebSocket application module. *)
 
 (** The type of applications. *)
 type t

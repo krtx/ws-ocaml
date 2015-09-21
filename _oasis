@@ -1,0 +1,33 @@
+OASISFormat: 0.4
+Name:        ws-ocaml
+Version:     0.1
+Synopsis:    WebSocket server implementation of OCaml
+Authors:     KINOSHITA Minoru
+License:     CC-BY-NC-SA
+Plugins:     META (0.4), DevFiles (0.4)
+BuildTools:  ocamlbuild
+
+Library "ws-ocaml"
+  Path:         lib
+  Modules:      Websocket, Frame
+  InternalModules: Bytes_ext, Crypto, Handshake, Misc
+  BuildDepends: unix, threads
+
+AlphaFeatures: ocamlbuild_more_args
+Document "ws-ocaml"
+  Type: ocamlbuild (0.4)
+  BuildTools: ocamldoc
+
+  Title: API reference for ws-ocaml
+  XOCamlbuildPath: .
+  XOCamlbuildExtraArgs:
+    "-docflags '-colorize-code -short-functors -charset utf-8'"
+  XOCamlbuildLibraries: ws-ocaml
+
+Executable "test_suite"
+  Path: t
+  MainIs: test.ml
+  BuildDepends: ws-ocaml
+
+Test "test_suite"
+  Command: $test_suite

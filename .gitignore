@@ -1,10 +1,6 @@
-*.o
-*.cmx
-*.cmo
-*.cmt
-*.cmti
-*.cmi
+_build
 *.byte
 *.native
-
-doc/
+*.docdir
+setup.data
+setup.log

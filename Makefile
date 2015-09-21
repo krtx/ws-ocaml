@@ -1,38 +1,41 @@
-.PHONY: all clean check doc
+# OASIS_START
+# DO NOT EDIT (digest: a3c674b4239234cbbe53afe090018954)
 
-OCAMLC   = ocamlc
-OCAMLOPT = ocamlopt
-WARN     = -w A-4-33-40-41-42-43-34-44 -strict-sequence
-SRC      = bytes_ext.mli bytes_ext.ml crypto.mli crypto.ml misc.ml frame.mli frame.ml handshake.ml app.mli app.ml server.ml
-TEST     = bytes_ext.mli bytes_ext.ml crypto.mli crypto.ml misc.ml frame.mli frame.ml handshake.ml t/test_helper.ml t/bytes_ext_test.ml t/crypto_test.ml t/frame_test.ml t/handshake_test.ml t/test.ml
-DOCDIR   = doc
+SETUP = ocaml setup.ml
 
-all: server.byte
+build: setup.data
+	$(SETUP) -build $(BUILDFLAGS)
 
-server.byte: $(SRC)
-	ocamlfind $(OCAMLC) $(WARN) -o $@ -g \
-		-thread unix.cma threads.cma \
-		$^
+doc: setup.data build
+	$(SETUP) -doc $(DOCFLAGS)
 
-server.native: $(SRC)
-	ocamlfind $(OCAMLOPT) $(WARN) -o $@ -g \
-		-thread unix.cmxa threads.cmxa \
-		$^
+test: setup.data build
+	$(SETUP) -test $(TESTFLAGS)
 
-test.byte: $(TEST)
-	ocamlfind $(OCAMLC) $(WARN) -o $@ -g \
-		-I t \
-		-thread unix.cma threads.cma \
-		$^
+all:
+	$(SETUP) -all $(ALLFLAGS)
 
-check: test.byte
-	./test.byte
+install: setup.data
+	$(SETUP) -install $(INSTALLFLAGS)
+
+uninstall: setup.data
+	$(SETUP) -uninstall $(UNINSTALLFLAGS)
+
+reinstall: setup.data
+	$(SETUP) -reinstall $(REINSTALLFLAGS)
 
 clean:
-	rm -f *.byte *.native
-	rm -f *.o *.cmx *.cmo *.cmt *.cmti *.cmi
-	rm -f t/*.o t/*.cmx t/*.cmo t/*.cmt t/*.cmti t/*.cmi
+	$(SETUP) -clean $(CLEANFLAGS)
 
-doc: server.byte
-	mkdir -p $(DOCDIR)
-	ocamldoc frame.mli app.mli -html -d $(DOCDIR)
+distclean:
+	$(SETUP) -distclean $(DISTCLEANFLAGS)
+
+setup.data:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+configure:
+	$(SETUP) -configure $(CONFIGUREFLAGS)
+
+.PHONY: build doc test all install uninstall reinstall clean distclean configure
+
+# OASIS_STOP
