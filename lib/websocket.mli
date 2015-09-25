@@ -10,7 +10,7 @@ type client
 type message = Text of bytes | Binary of bytes
 
 (** Make websocket application. *)
-val make : on_message:(client -> message -> unit) -> t
+val make : on_message:(client -> message -> unit) -> body:(client -> unit) -> t
 
 (** Low-level send function. *)
 val send : Frame.opcode -> client -> bytes -> unit

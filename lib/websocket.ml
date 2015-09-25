@@ -9,11 +9,12 @@ type message = Text of bytes | Binary of bytes
 
 (* TODO: Add on_close, on_connect, ... *)
 (* TODO: Handling of Invalid Data (10.7)  *)
-let make ~on_message client_sock =
+let make ~on_message ~body client_sock =
   let cin = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
   let buf = ref (Bytes.create 0) in
   try
+    Thread.create body cout;
     while true do
       let { fin; opcode; payload_data } = read_frame cin in
       if opcode = Continuation || opcode = Text || opcode = Binary
@@ -21,9 +22,9 @@ let make ~on_message client_sock =
       begin
         match opcode with
         | Continuation -> ()
-        | Text -> if fin then on_message cout (Text !buf)
-        | Binary -> if fin then on_message cout (Binary !buf)
-        | Close ->
+        | Text         -> if fin then on_message cout (Text !buf)
+        | Binary       -> if fin then on_message cout (Binary !buf)
+        | Close        ->
           (* TODO: Handling of closing status *)
           output_bytes cout
             (to_bytes { fin = true
@@ -72,7 +73,7 @@ let handshake handler (client_sock, _) =
 
 let handle_error f x = try f x with Failure err -> prerr_endline err; exit 2
 
-let run ?(max_connection=10) ~addr ~port handler =
+let run ?(max_connection=10) ~addr ~port app =
   let addr =
     try inet_addr_of_string addr
     with Failure _ -> failwith ("Incorrect address: " ^ addr)
@@ -84,7 +85,7 @@ let run ?(max_connection=10) ~addr ~port handler =
     try f s with Exit | Unix_error (EPIPE, _, _) -> ()
   in
   let treat_connection _ =
-    Misc.co_treatment (allow_connection_errors (handshake handler))
+    Misc.co_treatment (allow_connection_errors (handshake app))
   in
   let srv =
     Misc.tcp_farm_server max_connection treat_connection (ADDR_INET (addr, port))

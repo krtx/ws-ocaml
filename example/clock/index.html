@@ -1,0 +1,20 @@
+<html>
+  <head>
+    <title>ws-ocaml example - clock</title>
+  </head>
+  <body>
+    <h1>ws-ocaml example - clock</h1>
+    <div id="message"></div>
+    <div id="clock"></div>
+
+    <script>
+      var ws = new WebSocket('ws://localhost:3000');
+      ws.onerror = function () {
+          document.getElementById('message').innerHTML = "connection error";
+      };
+      ws.onmessage = function (e) {
+          document.getElementById('clock').innerHTML = e['data'];
+      };
+    </script>
+  </body>
+</html>

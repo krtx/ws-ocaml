@@ -31,3 +31,8 @@ Executable "test_suite"
 
 Test "test_suite"
   Command: $test_suite
+
+Executable "clock"
+  Path: example/clock
+  MainIs: clock.ml
+  BuildDepends: ws-ocaml
