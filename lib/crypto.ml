@@ -90,11 +90,11 @@ let sha1 message =
       b := !a;
       a := temp
     done;
-    h0 := !h0 + !a;
-    h1 := !h1 + !b;
-    h2 := !h2 + !c;
-    h3 := !h3 + !d;
-    h4 := !h4 + !e
+    h0 := (!h0 + !a) land 0xffffffff;
+    h1 := (!h1 + !b) land 0xffffffff;
+    h2 := (!h2 + !c) land 0xffffffff;
+    h3 := (!h3 + !d) land 0xffffffff;
+    h4 := (!h4 + !e) land 0xffffffff
   done;
   let res = Bytes.create 20 in
   Bytes_ext.encode_int !h0 res  0 4;
