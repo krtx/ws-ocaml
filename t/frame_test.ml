@@ -44,6 +44,10 @@ let test_frames =
     }
   ]
 
+let value = function
+  | Some v -> v
+  | None   -> failwith "value"
+
 let test_f mask ({ fin; opcode; payload_data } as f) =
   let { fin          = fin'
       ; opcode       = opcode'
@@ -53,6 +57,7 @@ let test_f mask ({ fin; opcode; payload_data } as f) =
      else to_bytes f)
     |> in_channel_of_bytes
     |> read_frame
+    |> value
   in
   assert (fin          = fin');
   assert (opcode       = opcode');

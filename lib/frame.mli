@@ -25,4 +25,4 @@ val to_bytes   : ?masking_key:int -> t -> bytes
 val of_bytes   : bytes -> t
 
 (** Read a frame.  Masked frames are unmasked internally. *)
-val read_frame : in_channel -> t
+val read_frame : in_channel -> t option

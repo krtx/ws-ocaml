@@ -8,12 +8,14 @@ let () =
   let on_message _ _ = () in
 
   let body client =
-    while true do
-      Websocket.send_text client (
-        Unix.time ()
-        |> Unix.localtime
-        |> str_of_time
-      );
+    let ok = ref true in
+    while !ok do
+      ok :=
+        Websocket.send_text client (
+          Unix.time ()
+          |> Unix.localtime
+          |> str_of_time
+        );
       Unix.sleep 1
     done
   in

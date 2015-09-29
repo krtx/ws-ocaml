@@ -89,36 +89,39 @@ let to_bytes ?masking_key frame =
   buf
 
 let read_frame cin =
-  let buf = ref (Bytes.create 128) in
-  let read_bytes offs len =
-    if Bytes.length !buf < offs + len
-    then buf := Bytes.extend !buf 0 (offs + len);
-    for i = offs to offs + len - 1 do
-      Bytes.set !buf i (input_char cin)
-    done;
-    Bytes.sub !buf offs len
+  let read_frame cin =
+    let buf = ref (Bytes.create 128) in
+    let read_bytes offs len =
+      if Bytes.length !buf < offs + len
+      then buf := Bytes.extend !buf 0 (offs + len);
+      for i = offs to offs + len - 1 do
+        Bytes.set !buf i (input_char cin)
+      done;
+      Bytes.sub !buf offs len
+    in
+    ignore (read_bytes 0 2);
+    let fin    = (Bytes.get !buf 0 |> int_of_char) lsr 7 = 1 in
+    let opcode = (Bytes.get !buf 0 |> int_of_char) land 15 |> opcode_of_int in
+    let mask   = (Bytes.get !buf 1 |> int_of_char) lsr 7 = 1 in
+    let pl     = (Bytes.get !buf 1 |> int_of_char) land 127 in
+    let payload_length, pos =
+      match pl with
+      | 126 -> read_bytes 2 2 |> Bytes_ext.int_of_bytes, 4
+      | 127 -> read_bytes 2 8 |> Bytes_ext.int_of_bytes, 10
+      | _   -> pl, 2
+    in
+    let payload_data =
+      if mask
+      then
+        let key = read_bytes pos 4
+        and raw = read_bytes (pos + 4) payload_length in
+        mask_of ~key raw
+      else
+        read_bytes pos payload_length
+    in
+    { fin; opcode; payload_data }
   in
-  ignore (read_bytes 0 2);
-  let fin    = (Bytes.get !buf 0 |> int_of_char) lsr 7 = 1 in
-  let opcode = (Bytes.get !buf 0 |> int_of_char) land 15 |> opcode_of_int in
-  let mask   = (Bytes.get !buf 1 |> int_of_char) lsr 7 = 1 in
-  let pl     = (Bytes.get !buf 1 |> int_of_char) land 127 in
-  let payload_length, pos =
-    match pl with
-    | 126 -> read_bytes 2 2 |> Bytes_ext.int_of_bytes, 4
-    | 127 -> read_bytes 2 8 |> Bytes_ext.int_of_bytes, 10
-    | _   -> pl, 2
-  in
-  let payload_data =
-    if mask
-    then
-      let key = read_bytes pos 4
-      and raw = read_bytes (pos + 4) payload_length in
-      mask_of ~key raw
-    else
-      read_bytes pos payload_length
-  in
-  { fin; opcode; payload_data }
+  try Some (read_frame cin) with _ -> None
 
 let of_bytes bytes =
   let fin    = (Bytes.get bytes 0 |> int_of_char) lsr 7 = 1 in
