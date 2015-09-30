@@ -32,7 +32,12 @@ Executable "test_suite"
 Test "test_suite"
   Command: $test_suite
 
+Flag example
+  Description: build examples
+  Default: false
+
 Executable "clock"
   Path: example/clock
   MainIs: clock.ml
+  Build$: flag(example)
   BuildDepends: ws-ocaml
