@@ -1,7 +1,6 @@
 open Unix
 open Frame
 
-type t = file_descr -> unit
 type client = out_channel
 type message = Text of bytes | Binary of bytes
 
@@ -20,16 +19,20 @@ let send opcode cout bytes =
 let send_text = send Text
 let send_binary = send Binary
 
-(* TODO: Broadcast function *)
+type app =
+  { body          : client -> unit
+  ; on_connection : client -> unit
+  ; on_message    : client -> message -> unit
+  ; on_close      : client -> unit
+  }
 
+(* TODO: Broadcast function *)
 (* TODO: Add on_close, on_connect, ... *)
 (* TODO: Handling of Invalid Data (10.7)  *)
-let make ~on_message ~body client_sock =
-  let cin  = in_channel_of_descr client_sock
+
+let event_loop on_message client_sock =
+  let cin = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
-
-  ignore (Thread.create body cout);
-
   let buf = ref (Bytes.create 0) in
   let proc { fin; opcode; payload_data } =
     if opcode = Continuation || opcode = Text || opcode = Binary
@@ -57,14 +60,25 @@ let make ~on_message ~body client_sock =
   with
     Exit -> ()
 
-let handshake handler (client_sock, _) =
+let invoke app client_sock =
+  let cout = out_channel_of_descr client_sock in
+  Misc.try_finalize
+    (fun () ->
+       app.on_connection cout;
+       ignore (Thread.create app.body cout);
+       event_loop app.on_message client_sock)
+    ()
+    app.on_close
+    cout
+
+let handshake app (client_sock, _) =
   let cin  = in_channel_of_descr client_sock
   and cout = out_channel_of_descr client_sock in
   begin
     try
       let response = Handshake.(parse_request cin |> make_response) in
       ignore (output_bytes' cout response);
-      Misc.try_finalize handler client_sock close client_sock
+      Misc.try_finalize (invoke app) client_sock close client_sock
     with
       Handshake.Bad_request response ->
       ignore (output_bytes' cout response)
@@ -72,6 +86,14 @@ let handshake handler (client_sock, _) =
   try close client_sock with _ -> ()
 
 let handle_error f x = try f x with Failure err -> prerr_endline err; exit 2
+
+let make_app
+      ?(body          = (fun _ -> ()))
+      ?(on_connection = (fun _ -> ()))
+      ?(on_message    = (fun _ _ -> ()))
+      ?(on_close      = (fun _ -> ()))
+      () =
+  { body; on_connection; on_message; on_close }
 
 let run ?(max_connection=10) ~addr ~port app =
   let addr =
