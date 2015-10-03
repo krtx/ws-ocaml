@@ -41,3 +41,9 @@ Executable "clock"
   MainIs: clock.ml
   Build$: flag(example)
   BuildDepends: ws-ocaml
+
+Executable "chat"
+  Path: example/chat
+  MainIs: chat.ml
+  Build$: flag(example)
+  BuildDepends: ws-ocaml
