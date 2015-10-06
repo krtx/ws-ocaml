@@ -26,8 +26,6 @@ type app =
   ; on_close      : client -> unit
   }
 
-(* TODO: Broadcast function *)
-(* TODO: Add on_close, on_connect, ... *)
 (* TODO: Handling of Invalid Data (10.7)  *)
 
 let event_loop on_message client_sock =
